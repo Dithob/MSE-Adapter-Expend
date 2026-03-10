@@ -36,7 +36,9 @@ def run(args):
         # load free-most gpu
         pynvml.nvmlInit()
         dst_gpu_id, min_mem_used = 0, 1e16
-        for g_id in [0, 1, 2, 3]:
+        # for g_id in [0, 1, 2, 3]:
+        # 只有一张卡
+        for g_id in [0]:
             handle = pynvml.nvmlDeviceGetHandleByIndex(g_id)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             mem_used = meminfo.used
@@ -183,21 +185,21 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--is_tune', type=bool, default=False,
                         help='tune parameters ?')
-    parser.add_argument('--train_mode', type=str, default="regression",
+    parser.add_argument('--train_mode', type=str, default="classification",
                         help='regression / classification')
     parser.add_argument('--modelName', type=str, default='cmcm',
                         help='support CMCM')
-    parser.add_argument('--datasetName', type=str, default='mosi',
+    parser.add_argument('--datasetName', type=str, default='meld',
                         help='support mosei/simsv2/meld/cherma')
-    parser.add_argument('--root_dataset_dir', type=str, default='/home/young/DL/multimodal_dataset/',
+    parser.add_argument('--root_dataset_dir', type=str, default='/mnt/workspace/Datasets/',
                         help='Location of the root directory where the dataset is stored')
     parser.add_argument('--num_workers', type=int, default=0,
                         help='num workers of loading data')
-    parser.add_argument('--model_save_dir', type=str, default='results/models',
+    parser.add_argument('--model_save_dir', type=str, default='/mnt/workspace/results/models',
                         help='path to save results.')
-    parser.add_argument('--res_save_dir', type=str, default='results/results',
+    parser.add_argument('--res_save_dir', type=str, default='/mnt/workspace/results',
                         help='path to save results.')
-    parser.add_argument('--pretrain_LM', type=str, default='/data/huggingface_model/THUDM/chatglm3-6b-base/',
+    parser.add_argument('--pretrain_LM', type=str, default='/mnt/workspace/models/chatglm3-6b/',
                         help='path to load pretrain LLM.')
     parser.add_argument('--gpu_ids', type=list, default=[],
                         help='indicates the gpus will be used. If none, the most-free gpu will be used!')   #使用GPU1
@@ -207,12 +209,14 @@ if __name__ == '__main__':
     args = parse_args()
     logger = set_log(args)
     for data_name in ['mosei', 'simsv2', 'meld', 'cherma']:
+    # 暂时跑一个数据集
+    for data_name in ['meld']:
         if data_name in ['mosei', 'simsv2']:
             args.train_mode = 'regression'
         else:
             args.train_mode = 'classification'
 
         args.datasetName = data_name
-        args.seeds = [1111, 2222, 3333, 4444, 5555]
-        # args.seeds = [1111]
+        # args.seeds = [1111, 2222, 3333, 4444, 5555]
+        args.seeds = [1111]
         run_normal(args)
