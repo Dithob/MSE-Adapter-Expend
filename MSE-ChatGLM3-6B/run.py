@@ -208,8 +208,8 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     logger = set_log(args)
-    for data_name in ['mosei', 'simsv2', 'meld', 'cherma']:
     # 暂时跑一个数据集
+    # for data_name in ['mosei', 'simsv2', 'meld', 'cherma']:
     for data_name in ['meld']:
         if data_name in ['mosei', 'simsv2']:
             args.train_mode = 'regression'

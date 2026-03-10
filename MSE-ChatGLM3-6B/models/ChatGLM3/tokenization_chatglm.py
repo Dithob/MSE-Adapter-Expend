@@ -90,6 +90,11 @@ class ChatGLMTokenizer(PreTrainedTokenizer):
             "<eos>": self.tokenizer.eos_id,
             "<pad>": self.tokenizer.pad_id
         }
+        # ====== 新增：拦截会导致报错的只读属性 ======
+        kwargs.pop("eos_token", None)
+        kwargs.pop("pad_token", None)
+        kwargs.pop("unk_token", None)
+        # ============================================
         super().__init__(padding_side=padding_side, clean_up_tokenization_spaces=clean_up_tokenization_spaces, **kwargs)
 
     def get_command(self, token):
