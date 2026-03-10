@@ -92,6 +92,7 @@ class ConfigClassification():
                     'label_index_mapping': {'neutral': 0, 'surprise': 1, 'fear': 2, 'sadness': 3, 'joy': 4, 'disgust': 5,
                                            'anger': 6},
                     'batch_size': 8,
+                    # 'batch_size': 4,
                     'learning_rate': 5e-5,
                     # feature subNets
                     'a_lstm_hidden_size': 64,
@@ -104,7 +105,9 @@ class ConfigClassification():
                     #loss weight   best：1
                     'gamma':1,
                     'update_epochs': 1,
-                    'early_stop': 8,
+                    # 'early_stop': 8,
+                    # 单元测试
+                    'early_stop': 1,
                     # res
                     'H': 3.0
                 },
