@@ -59,7 +59,10 @@ class Language_model(nn.Module):
         # {'neutral': 0, 'surprise': 1, ...} -> {0: 'neutral', 1: 'surprise', ...}
         self.id2label = None
         if hasattr(args, "label_index_mapping") and args.label_index_mapping is not None:
-            self.id2label = {int(v): str(k) for k, v in args.label_index_mapping.items()}
+            # self.id2label = {int(v): str(k) for k, v in args.label_index_mapping.items()}
+            self.id2label = None
+            if hasattr(args, "label_index_mapping") and args.label_index_mapping is not None:
+                self.id2label = {int(v): str(v) for k, v in args.label_index_mapping.items()}
 
     def _resolve_dtype(self, dtype_name: str):
         dtype_name = str(dtype_name).lower()
@@ -243,8 +246,12 @@ class Language_model(nn.Module):
             eos_token_id=self.tokenizer.eos_token_id,
         )
 
+        # 只取新增 token
+        new_tokens = generated[:, -getattr(self.args, "max_new_tokens", 4):]
+
         decoded = self.tokenizer.batch_decode(
-            generated,
+            new_tokens,
             skip_special_tokens=True
         )
+
         return decoded

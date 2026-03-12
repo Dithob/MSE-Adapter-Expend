@@ -229,5 +229,6 @@ if __name__ == '__main__':
             args.train_mode = 'classification'
 
         args.datasetName = data_name
-        args.seeds = [1111, 2222, 3333, 4444, 5555]
+        # args.seeds = [1111, 2222, 3333, 4444, 5555]
+        args.seeds = [1111]
         run_normal(args)
