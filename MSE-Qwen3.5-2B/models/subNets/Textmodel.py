@@ -1,5 +1,3 @@
-# models/subNets/Textmodel.py
-
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -7,21 +5,12 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 class Language_model(nn.Module):
     """
-    A drop-in replacement for the original Qwen-1.8B text model wrapper.
+    Drop-in replacement for the original Qwen text model wrapper.
 
     Expected interface from CMCM:
         - text_embedding(input_ids) -> [B, T, H]
         - forward(llm_input_embeds, labels) -> outputs with .loss
         - generate(llm_input_embeds) -> generated token ids / decoded text
-
-    llm_input_embeds:
-        [B, P + T_text, H]
-        where P is pseudo token count from MSE-Adapter fusion,
-        and T_text is the text token sequence length.
-
-    labels:
-        usually [B, T_label] token ids of target answer
-        or a tuple/list whose first element is token ids
     """
 
     def __init__(self, args):
@@ -33,19 +22,24 @@ class Language_model(nn.Module):
             self.model_name,
             padding_side="right",
             use_fast=False,
+            trust_remote_code=True,
+            local_files_only=True if str(self.model_name).startswith("/") else False,
         )
 
-        if self.tokenizer.pad_token_id is None:
+        if self.tokenizer.pad_token_id is None and self.tokenizer.eos_token is not None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        torch_dtype = self._resolve_dtype(getattr(args, "llm_dtype", "bf16"))
-
         model_kwargs = {
-            "torch_dtype": torch_dtype,
+            "dtype": self._resolve_dtype(getattr(args, "llm_dtype", "bf16")),
+            "trust_remote_code": True,
         }
+
         attn_impl = getattr(args, "attn_implementation", None)
         if attn_impl:
             model_kwargs["attn_implementation"] = attn_impl
+
+        if str(self.model_name).startswith("/"):
+            model_kwargs["local_files_only"] = True
 
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
@@ -55,13 +49,17 @@ class Language_model(nn.Module):
         self.hidden_size = self.model.config.hidden_size
         self.embed_tokens = self.model.get_input_embeddings()
 
-        # Keep original MSE-Adapter spirit: freeze the backbone by default.
         if getattr(args, "freeze_llm", True):
             for p in self.model.parameters():
                 p.requires_grad = False
 
-        # cache prompt ids
         self.prompt_ids = self._build_prompt_ids(args.task_specific_prompt)
+
+        # classification label mapping, e.g.
+        # {'neutral': 0, 'surprise': 1, ...} -> {0: 'neutral', 1: 'surprise', ...}
+        self.id2label = None
+        if hasattr(args, "label_index_mapping") and args.label_index_mapping is not None:
+            self.id2label = {int(v): str(k) for k, v in args.label_index_mapping.items()}
 
     def _resolve_dtype(self, dtype_name: str):
         dtype_name = str(dtype_name).lower()
@@ -72,9 +70,6 @@ class Language_model(nn.Module):
         return torch.float32
 
     def _build_prompt_ids(self, prompt_text: str) -> torch.Tensor:
-        """
-        Prefer official chat template for Qwen3.5-Base, fallback to raw text tokenization.
-        """
         use_chat_template = getattr(self.args, "use_chat_template", True)
 
         if use_chat_template and hasattr(self.tokenizer, "apply_chat_template"):
@@ -95,24 +90,42 @@ class Language_model(nn.Module):
         prompt_ids = self.tokenizer(
             prompt_text,
             add_special_tokens=False,
-            return_tensors="pt"
+            return_tensors="pt",
         )["input_ids"][0]
         return prompt_ids.long()
 
     def text_embedding(self, input_ids: torch.Tensor) -> torch.Tensor:
-        """
-        input_ids: [B, T]
-        return:    [B, T, H]
-        """
         return self.embed_tokens(input_ids)
+
+    def _class_ids_to_token_ids(self, class_ids: torch.Tensor, device):
+        """
+        class_ids: [B]
+        return: token ids [B, T]
+        """
+        if self.id2label is None:
+            raise ValueError("1D labels detected, but args.label_index_mapping is missing.")
+
+        label_texts = [self.id2label[int(x)] for x in class_ids.tolist()]
+
+        if getattr(self.args, "append_eos_to_label", True) and self.tokenizer.eos_token is not None:
+            label_texts = [txt + self.tokenizer.eos_token for txt in label_texts]
+
+        tokenized = self.tokenizer(
+            label_texts,
+            padding=True,
+            truncation=True,
+            add_special_tokens=False,
+            return_tensors="pt",
+        )
+        return tokenized["input_ids"].to(device)
 
     def _normalize_label_ids(self, labels, device):
         """
-        Try to be compatible with existing dataloader outputs.
         Supported:
-            - Tensor[B, T]
-            - tuple/list with first element Tensor[B, T]
-            - dict containing 'input_ids' or 'labels'
+            - Tensor[B]       : class ids for classification
+            - Tensor[B, T]    : token ids
+            - tuple/list      : first element is one of above
+            - dict            : contains input_ids / labels
         """
         if isinstance(labels, torch.Tensor):
             label_ids = labels
@@ -128,32 +141,36 @@ class Language_model(nn.Module):
         else:
             raise TypeError(f"Unsupported labels type: {type(labels)}")
 
-        label_ids = label_ids.to(device).long()
+        label_ids = label_ids.to(device)
 
-        # remove invalid negative ids except ignore_index
+        # case 1: classification labels, shape [B]
+        if label_ids.ndim == 1:
+            return self._class_ids_to_token_ids(label_ids.long(), device)
+
+        # case 2: already token ids, shape [B, T]
+        if label_ids.ndim != 2:
+            raise ValueError(f"Unsupported label shape: {tuple(label_ids.shape)}")
+
+        label_ids = label_ids.long()
+
+        # replace negative ids with pad token
         label_ids = torch.where(
             label_ids < 0,
             torch.full_like(label_ids, self.tokenizer.pad_token_id),
             label_ids
         )
 
+        # append eos only if needed
         if getattr(self.args, "append_eos_to_label", True):
-            eos = torch.full(
-                (label_ids.size(0), 1),
-                self.tokenizer.eos_token_id,
-                dtype=torch.long,
-                device=device
-            )
-            # avoid double append if already ends with eos
-            need_append = (label_ids[:, -1] != self.tokenizer.eos_token_id).unsqueeze(1)
-            label_ids = torch.cat(
-                [label_ids, eos * need_append + label_ids[:, -1:].clone() * (~need_append)],
-                dim=1
-            )
-            # 上面写法会在已带 eos 时复制最后一个 token，不够干净，下面修正：
-            for i in range(label_ids.size(0)):
-                if label_ids[i, -2] == self.tokenizer.eos_token_id:
-                    label_ids[i, -1] = self.tokenizer.eos_token_id
+            last_is_eos = (label_ids[:, -1] == self.tokenizer.eos_token_id)
+            if not torch.all(last_is_eos):
+                eos_col = torch.full(
+                    (label_ids.size(0), 1),
+                    self.tokenizer.eos_token_id,
+                    dtype=torch.long,
+                    device=device
+                )
+                label_ids = torch.cat([label_ids, eos_col], dim=1)
 
         return label_ids
 
@@ -164,7 +181,9 @@ class Language_model(nn.Module):
     def forward(self, llm_input_embeds: torch.Tensor, labels):
         """
         llm_input_embeds: [B, T_prefix, H]
-        labels: target token ids, shape [B, T_label]
+        labels:
+            - classification ids [B]
+            - or token ids [B, T]
         """
         device = llm_input_embeds.device
         batch_size = llm_input_embeds.size(0)
@@ -204,9 +223,6 @@ class Language_model(nn.Module):
 
     @torch.no_grad()
     def generate(self, llm_input_embeds: torch.Tensor):
-        """
-        Return generated ids and decoded strings.
-        """
         device = llm_input_embeds.device
         batch_size = llm_input_embeds.size(0)
         prompt_embeds = self._build_prompt_embeds(batch_size, device)
@@ -231,7 +247,4 @@ class Language_model(nn.Module):
             generated,
             skip_special_tokens=True
         )
-        return {
-            "output_ids": generated,
-            "output_text": decoded,
-        }
+        return decoded
