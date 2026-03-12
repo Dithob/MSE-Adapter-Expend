@@ -36,7 +36,8 @@ def run(args):
         # load free-most gpu
         pynvml.nvmlInit()
         dst_gpu_id, min_mem_used = 0, 1e16
-        for g_id in [0, 1, 2, 3]:
+        # for g_id in [0, 1, 2, 3]:
+        for g_id in [0]:
             handle = pynvml.nvmlDeviceGetHandleByIndex(g_id)
             meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
             mem_used = meminfo.used
@@ -220,7 +221,8 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     logger = set_log(args)
-    for data_name in [ 'simsv2', 'mosei', 'meld', 'cherma']:
+    # for data_name in [ 'simsv2', 'mosei', 'meld', 'cherma']:
+    for data_name in ['meld']:
         if data_name in ['mosi', 'mosei', 'sims', 'simsv2']:
             args.train_mode = 'regression'
         else:
