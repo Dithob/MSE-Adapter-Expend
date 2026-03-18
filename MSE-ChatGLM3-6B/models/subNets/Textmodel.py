@@ -20,7 +20,15 @@ class Language_model (nn.Module):
 
         if use_PLM:
             pretrained_model = args.pretrain_LM              #pretrained model select
-            self.model = ChatGLMForConditionalGeneration.from_pretrained(pretrained_model, trust_remote_code=True, torch_dtype=torch.bfloat16).half()
+            # self.model = ChatGLMForConditionalGeneration.from_pretrained(pretrained_model, trust_remote_code=True, torch_dtype=torch.bfloat16).half()
+            self.model = ChatGLMForConditionalGeneration.from_pretrained(
+                pretrained_model, 
+                trust_remote_code=True, 
+                torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True,  # 开启大模型低内存加载模式
+                device_map="auto"        # 让 accelerate 自动分配显存和内存流转
+            ).half()
+
             self.tokenizer = ChatGLMTokenizer.from_pretrained(pretrained_model, trust_remote_code=True)
             self.device = args.device
             self.language = args.language
