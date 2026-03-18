@@ -59,6 +59,7 @@ class CMCM():
         }
 
     def do_train(self, model, dataloader):
+        print("DEBUG: Executing trains.multiTask.CMCM.do_train. Sync successful.")
 
         scaler = GradScaler()
         optimizer = optim.AdamW(model.Model.parameters(), lr= self.args.learning_rate, eps=1e-4)
