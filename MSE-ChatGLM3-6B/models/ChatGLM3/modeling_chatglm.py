@@ -1110,7 +1110,10 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
         batch_size, input_ids_seq_length = input_ids.shape[0], input_ids.shape[-1]
 
         if generation_config is None:
-            generation_config = self.generation_config
+            generation_config = getattr(self, "generation_config", None)
+            if generation_config is None:
+                from transformers import GenerationConfig
+                generation_config = GenerationConfig()
         generation_config = copy.deepcopy(generation_config)
         model_kwargs = generation_config.update(**kwargs)
         model_kwargs["use_cache"] = generation_config.use_cache
