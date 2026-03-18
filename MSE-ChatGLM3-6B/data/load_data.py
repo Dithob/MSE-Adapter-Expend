@@ -68,11 +68,26 @@ class MMDataset(Dataset):
         mode_file = 'test' if self.mode == 'valid' else self.mode
         data_path = os.path.join(self.args.dataPath, f'iemocap_{cls_num}class_{mode_file}.pkl')
         
+        def pad_sequence_numpy(sequences, max_len, feature_dim):
+            padded = []
+            for seq in sequences:
+                seq = np.atleast_2d(seq)
+                if seq.shape[0] >= max_len:
+                    padded.append(seq[:max_len, :])
+                else:
+                    pad = np.zeros((max_len - seq.shape[0], feature_dim), dtype=np.float32)
+                    padded.append(np.vstack((seq, pad)))
+            return np.array(padded, dtype=np.float32)
+
         label_index_mapping = self.args.label_index_mapping
         with open(data_path, 'rb') as f:
             data = pickle.load(f)
-            self.vision = np.array(list(map(lambda item: item['features']['video'], data))).astype(np.float32)
-            self.audio = np.array(list(map(lambda item: item['features']['audio'], data))).astype(np.float32)
+            
+            raw_audio = list(map(lambda item: item['features']['audio'], data))
+            raw_video = list(map(lambda item: item['features']['video'], data))
+            
+            self.vision = pad_sequence_numpy(raw_video, self.args.seq_lens[2], self.args.feature_dims[2])
+            self.audio = pad_sequence_numpy(raw_audio, self.args.seq_lens[1], self.args.feature_dims[1])
             self.rawText = np.array(list(map(lambda item: item['features']['text'], data)))
 
             self.labels = {
