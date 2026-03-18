@@ -121,11 +121,12 @@ class Text_guide_mixer(nn.Module):
         self.GAP = nn.AdaptiveAvgPool1d(1)
         self.text_mlp = nn.Linear(4096, 256)
     def forward(self, audio, video, text):
-        text_GAP = self.GAP(text.permute(0, 2, 1)).squeeze()
-        text_knowledge = self.text_mlp(text_GAP)
+        # 提取并强转其维度，解决半精度运算下文本输入与 Float 层产生冲突，增加 .squeeze(-1) 保存 batch 维度
+        text_GAP = self.GAP(text.permute(0, 2, 1)).squeeze(-1)
+        text_knowledge = self.text_mlp(text_GAP.to(self.text_mlp.weight.dtype))
 
-        audio_mixed = torch.mul(audio, text_knowledge)
-        video_mixed = torch.mul(video, text_knowledge)
+        audio_mixed = torch.mul(audio, text_knowledge.to(audio.dtype))
+        video_mixed = torch.mul(video, text_knowledge.to(video.dtype))
 
         fusion = audio_mixed + video_mixed
 
