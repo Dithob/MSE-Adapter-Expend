@@ -97,8 +97,8 @@ class MMDataset(Dataset):
                 self.text = self.PLM_tokenizer(self.rawText)
 
         if not self.args.need_data_aligned:
-            self.audio_lengths = np.array(list(map(lambda item: item['features']['audio_len'], data)))
-            self.vision_lengths = np.array(list(map(lambda item: item['features']['video_len'], data)))
+            self.audio_lengths = np.array(list(map(lambda item: min(item['features']['audio_len'], self.args.seq_lens[1]), data)))
+            self.vision_lengths = np.array(list(map(lambda item: min(item['features']['video_len'], self.args.seq_lens[2]), data)))
 
     def __init_cherma(self):
         return self.__init_meld()
