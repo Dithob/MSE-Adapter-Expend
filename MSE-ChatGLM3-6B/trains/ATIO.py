@@ -8,14 +8,14 @@ from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform, xavier_normal, orthogonal
 
-from trains.multiTask import *
+import trains.multiTask.CMCM as trains_cmcm
 
 __all__ = ['ATIO']
 
 class ATIO():
     def __init__(self):
         self.TRAIN_MAP = {
-           'cmcm': CMCM,
+           'cmcm': trains_cmcm.CMCM,
         }
     
     def getTrain(self, args):
