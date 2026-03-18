@@ -16,3 +16,11 @@ venv/
 
 # 实验结果
 training_figures/
+
+# 文件备份
+backup/
+
+# 数据集
+datasets/
+
+test/

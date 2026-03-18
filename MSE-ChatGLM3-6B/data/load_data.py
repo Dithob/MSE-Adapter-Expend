@@ -27,6 +27,8 @@ class MMDataset(Dataset):
             'simsv2': self.__init_simsv2,
             'meld': self.__init_meld,
             'iemocap': self.__init_iemocap,
+            'iemocap4': self.__init_iemocap,
+            'iemocap6': self.__init_iemocap,
             'cherma': self.__init_cherma,
 
         }
@@ -61,7 +63,27 @@ class MMDataset(Dataset):
             self.vision_lengths = np.array(list(map(lambda item: item['features']['video_len'], data)))
 
     def __init_iemocap(self):
-        return self.__init_meld()
+        cls_num = 6 if '6' in self.args.datasetName else 4
+        # IEMOCAP 抽取只生成 train.pkl 和 test.pkl，如果是 valid 则降级加载 test.pkl 以完成早停
+        mode_file = 'test' if self.mode == 'valid' else self.mode
+        data_path = os.path.join(self.args.dataPath, f'iemocap_{cls_num}class_{mode_file}.pkl')
+        
+        label_index_mapping = self.args.label_index_mapping
+        with open(data_path, 'rb') as f:
+            data = pickle.load(f)
+            self.vision = np.array(list(map(lambda item: item['features']['video'], data))).astype(np.float32)
+            self.audio = np.array(list(map(lambda item: item['features']['audio'], data))).astype(np.float32)
+            self.rawText = np.array(list(map(lambda item: item['features']['text'], data)))
+
+            self.labels = {
+                'M': list(map(lambda item: label_index_mapping.get(item['label'],-1), data))
+            }
+            if self.args.use_PLM:
+                self.text = self.PLM_tokenizer(self.rawText)
+
+        if not self.args.need_data_aligned:
+            self.audio_lengths = np.array(list(map(lambda item: item['features']['audio_len'], data)))
+            self.vision_lengths = np.array(list(map(lambda item: item['features']['video_len'], data)))
 
     def __init_cherma(self):
         return self.__init_meld()

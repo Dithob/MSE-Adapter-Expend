@@ -189,8 +189,8 @@ def parse_args():
                         help='regression / classification')
     parser.add_argument('--modelName', type=str, default='cmcm',
                         help='support CMCM')
-    parser.add_argument('--datasetName', type=str, default='meld',
-                        help='support mosei/simsv2/meld/cherma')
+    parser.add_argument('--datasetName', type=str, default='iemocap4',
+                        help='support mosei/simsv2/meld/cherma/iemocap4/iemocap6')
     parser.add_argument('--root_dataset_dir', type=str, default='/mnt/workspace/Datasets/',
                         help='Location of the root directory where the dataset is stored')
     parser.add_argument('--num_workers', type=int, default=0,
@@ -208,9 +208,8 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     logger = set_log(args)
-    # 动态适应传入的 datasetName 数据集名称
-    # for data_name in ['mosei', 'simsv2', 'meld', 'cherma']:
-    for data_name in [args.datasetName]:
+    # 跑 IEMOCAP 4分类和6分类的验证集
+    for data_name in ['iemocap4', 'iemocap6']:
         if data_name in ['mosei', 'simsv2']:
             args.train_mode = 'regression'
         else:

@@ -57,3 +57,6 @@ Our code is structurally referenced to [SELF-MM](https://github.com/thuiar/Self-
 
 ## Equipment
 
+```bash
+python run.py --datasetName iemocap4 --modelName cmcm --pretrain_LM <你的大模型路径>
+```

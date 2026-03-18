@@ -1,0 +1,14 @@
+# Requirements for IEMOCAP Feature Extraction (process_iemocap.py)
+# Note: PyTorch dependencies may vary based on your CUDA version. It is recommended to install PyTorch from https://pytorch.org/get-started/locally/ first.
+
+torch
+torchvision
+torchaudio
+opencv-python
+librosa
+timm
+facenet-pytorch
+tqdm
+numpy
+pandas
+scikit-learn
