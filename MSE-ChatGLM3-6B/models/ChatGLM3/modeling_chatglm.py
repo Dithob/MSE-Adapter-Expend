@@ -23,7 +23,7 @@ from transformers.modeling_outputs import (
 from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import logging
 from transformers.generation.logits_process import LogitsProcessor
-from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig, ModelOutput
+from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig, ModelOutput, GenerationMixin
 
 from models.ChatGLM3.configuration_chatglm import ChatGLMConfig
 
@@ -860,7 +860,7 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
         return self
 
 
-class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
+class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel, GenerationMixin):
     def __init__(self, config: ChatGLMConfig, empty_init=True, device=None):
         super().__init__(config)
 
