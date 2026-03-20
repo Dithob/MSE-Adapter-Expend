@@ -68,7 +68,7 @@ class ConfigClassification():
             },
             'iemocap4':{
                 'unaligned': {
-                    'dataPath': os.path.join(root_dataset_dir, 'iemocap_data_0610.pkl'),
+                    'dataPath': os.path.join(root_dataset_dir, 'IEMOCAP_Origin', 'iemocap_data_0610.pkl'),
                     'seq_lens': (84, 157, 32),
                     # (text, audio, video)
                     'feature_dims': (4096, 64, 64),
@@ -80,7 +80,7 @@ class ConfigClassification():
             },
             'iemocap6':{
                 'unaligned': {
-                    'dataPath': os.path.join(root_dataset_dir, 'iemocap_data_0610.pkl'),
+                    'dataPath': os.path.join(root_dataset_dir, 'IEMOCAP_Origin', 'iemocap_data_0610.pkl'),
                     'seq_lens': (84, 157, 32),
                     # (text, audio, video)
                     'feature_dims': (4096, 64, 64),

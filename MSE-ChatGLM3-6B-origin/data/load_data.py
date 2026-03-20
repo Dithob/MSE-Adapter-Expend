@@ -66,7 +66,7 @@ class MMDataset(Dataset):
         import re
         import glob
         
-        iemocap_dir = os.path.join(self.args.root_dataset_dir, 'IEMOCAP', 'IEMOCAP_full_release')
+        iemocap_dir = os.path.join(self.args.root_dataset_dir, 'IEMOCAP_Origin', 'IEMOCAP_full_release')
             
         def parse_labels_and_texts():
             info = {}
