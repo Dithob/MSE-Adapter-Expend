@@ -66,10 +66,48 @@ class MMDataset(Dataset):
         import re
         import glob
         
-        iemocap_dir = os.path.join(self.args.root_dataset_dir, 'IEMOCAP_Origin', 'IEMOCAP_full_release')
+        # 1. Detect iemocap_text CSV directory
+        iemocap_text_dir = None
+        for p in [os.path.join(self.args.root_dataset_dir, 'iemocap_text'),
+                  os.path.join(os.path.dirname(self.args.root_dataset_dir), 'iemocap_text')]:
+            if os.path.exists(p):
+                iemocap_text_dir = p
+                break
+                
+        # 2. Robust path detection for IEMOCAP_full_release (fallback)
+        search_paths = [
+            os.path.join(self.args.root_dataset_dir, 'IEMOCAP', 'IEMOCAP_full_release'),
+            os.path.join(self.args.root_dataset_dir, 'IEMOCAP_Origin', 'IEMOCAP_full_release'),
+            os.path.join(self.args.root_dataset_dir, 'IEMOCAP_full_release'),
+            os.path.join(os.path.dirname(self.args.root_dataset_dir), 'IEMOCAP', 'IEMOCAP_full_release'),
+            os.path.join(os.path.dirname(self.args.root_dataset_dir), 'IEMOCAP_Origin', 'IEMOCAP_full_release'),
+        ]
+        iemocap_dir = None
+        for p in search_paths:
+            if os.path.exists(p):
+                iemocap_dir = p
+                break
+        
+        if iemocap_text_dir is None and iemocap_dir is None:
+            raise FileNotFoundError(f"Could not find neither iemocap_text nor IEMOCAP_full_release directory. Please ensure text labels are present!")
             
         def parse_labels_and_texts():
             info = {}
+            if iemocap_text_dir:
+                import csv
+                logger.info(f"Using pre-parsed CSV files from: {iemocap_text_dir}")
+                for split in ['train', 'valid', 'test']:
+                    csv_path = os.path.join(iemocap_text_dir, f'iemocap_data_{split}.csv')
+                    if os.path.exists(csv_path):
+                        with open(csv_path, 'r', encoding='utf-8') as f:
+                            reader = csv.DictReader(f)
+                            for row in reader:
+                                if 'vid_cid' in row and 'label' in row and 'text' in row:
+                                    info[row['vid_cid']] = {'emo': row['label'], 'text': row['text'].strip()}
+                return info
+
+            # Fallback to pure folder parsed logic
+            logger.info(f"Fallback to raw data text matching at: {iemocap_dir}")
             for s in range(1, 6):
                 d_emo = os.path.join(iemocap_dir, f'Session{s}', 'dialog', 'EmoEvaluation')
                 if os.path.exists(d_emo):
@@ -149,6 +187,9 @@ class MMDataset(Dataset):
             raw_video.append(vid_feat)
             audio_lengths.append(max(1, min(aud_feat.shape[0], self.args.seq_lens[1])))
             video_lengths.append(max(1, min(vid_feat.shape[0], self.args.seq_lens[2])))
+            
+        if len(raw_text) == 0:
+            raise ValueError(f"CRITICAL ERROR: No samples were loaded! This means the parsed text/labels failed to match the keys in {data_path}.")
             
         self.rawText = np.array(raw_text)
         self.labels = {'M': labels_m}
