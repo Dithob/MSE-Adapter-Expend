@@ -8,7 +8,7 @@ import torch
 import gzip
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from modelscope import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel
 from operator import itemgetter
 from torch.nn.utils.rnn import pad_sequence
 
@@ -27,6 +27,8 @@ class MMDataset(Dataset):
             'simsv2': self.__init_simsv2,
             'meld': self.__init_meld,
             'iemocap': self.__init_iemocap,
+            'iemocap4': self.__init_iemocap,
+            'iemocap6': self.__init_iemocap,
             'cherma': self.__init_cherma,
 
         }
@@ -61,7 +63,104 @@ class MMDataset(Dataset):
             self.vision_lengths = np.array(list(map(lambda item: item['features']['video_len'], data)))
 
     def __init_iemocap(self):
-        return self.__init_meld()
+        import re
+        import glob
+        
+        iemocap_dir = os.path.join(self.args.root_dataset_dir, 'IEMOCAP', 'IEMOCAP_full_release')
+            
+        def parse_labels_and_texts():
+            info = {}
+            for s in range(1, 6):
+                d_emo = os.path.join(iemocap_dir, f'Session{s}', 'dialog', 'EmoEvaluation')
+                if os.path.exists(d_emo):
+                    for txt in glob.glob(os.path.join(d_emo, '*.txt')):
+                        with open(txt, 'r', encoding='utf-8') as f:
+                            for line in f:
+                                if line.startswith('['):
+                                    t_match = re.match(r'\[(.*?) - (.*?)\]', line.split('\t')[0])
+                                    parts = line.strip().split('\t')
+                                    if t_match and len(parts) >= 3:
+                                        info[parts[1]] = {'emo': parts[2], 'text': ''}
+                d_trans = os.path.join(iemocap_dir, f'Session{s}', 'dialog', 'transcriptions')
+                if os.path.exists(d_trans):
+                    for txt in glob.glob(os.path.join(d_trans, '*.txt')):
+                        with open(txt, 'r', encoding='utf-8', errors='ignore') as f:
+                            for line in f:
+                                match = re.match(r'(Ses\w+) \[.*\]:\s*(.*)', line)
+                                if match:
+                                    uid = match.group(1)
+                                    if uid in info:
+                                        info[uid]['text'] = match.group(2).strip()
+            return info
+            
+        def pad_sequence_numpy(sequences, max_len, feature_dim):
+            padded = []
+            for seq in sequences:
+                seq = np.atleast_2d(seq)
+                if seq.shape[0] >= max_len:
+                    padded.append(seq[:max_len, :])
+                else:
+                    pad = np.zeros((max_len - seq.shape[0], feature_dim), dtype=np.float32)
+                    padded.append(np.vstack((seq, pad)))
+            return np.array(padded, dtype=np.float32)
+
+        data_path = self.args.dataPath # 期望路径类似于 datasets/iemocap_data_0610.pkl
+        with open(data_path, 'rb') as f:
+            data = pickle.load(f)
+            
+        iemocap_meta = parse_labels_and_texts()
+        
+        split_idx = 0 if self.mode == 'train' else (1 if self.mode == 'valid' else 2)
+        if len(data['audio'][split_idx]) == 0:
+            split_idx = 2
+            
+        audio_dict = data['audio'][split_idx]
+        video_dict = data['video'][split_idx]
+        
+        raw_audio, raw_video, raw_text, labels_m = [], [], [], []
+        audio_lengths, video_lengths = [], []
+        
+        # IEMOCAP Emotion Maps
+        emo_map4 = {'ang': 'angry', 'hap': 'happy', 'exc': 'happy', 'sad': 'sad', 'neu': 'neutral'}
+        emo_map6 = {'ang': 'angry', 'hap': 'happy', 'exc': 'excited', 'sad': 'sad', 'neu': 'neutral', 'fru': 'frustrated'}
+        emo_map = emo_map4 if '4' in self.args.datasetName else emo_map6
+        
+        label_index_mapping = self.args.label_index_mapping
+        
+        keys = list(audio_dict.keys())
+        for k in keys:
+            if k not in iemocap_meta:
+                continue
+            raw_emo = iemocap_meta[k]['emo']
+            if raw_emo not in emo_map:
+                continue 
+                
+            mapped_emo = emo_map[raw_emo]
+            if mapped_emo not in label_index_mapping:
+                continue
+                
+            labels_m.append(label_index_mapping[mapped_emo])
+            raw_text.append(iemocap_meta[k]['text'])
+            
+            aud_feat = audio_dict[k]
+            vid_feat = video_dict[k]
+            
+            raw_audio.append(aud_feat)
+            raw_video.append(vid_feat)
+            audio_lengths.append(max(1, min(aud_feat.shape[0], self.args.seq_lens[1])))
+            video_lengths.append(max(1, min(vid_feat.shape[0], self.args.seq_lens[2])))
+            
+        self.rawText = np.array(raw_text)
+        self.labels = {'M': labels_m}
+        self.vision = pad_sequence_numpy(raw_video, self.args.seq_lens[2], self.args.feature_dims[2])
+        self.audio = pad_sequence_numpy(raw_audio, self.args.seq_lens[1], self.args.feature_dims[1])
+        
+        if self.args.use_PLM:
+            self.text = self.PLM_tokenizer(self.rawText)
+            
+        if not self.args.need_data_aligned:
+            self.audio_lengths = np.array(audio_lengths)
+            self.vision_lengths = np.array(video_lengths)
 
     def __init_cherma(self):
         return self.__init_meld()

@@ -66,7 +66,30 @@ class ConfigClassification():
                     'KeyEval': 'weight_F1',
                 }
             },
-
+            'iemocap4':{
+                'unaligned': {
+                    'dataPath': os.path.join(root_dataset_dir, 'iemocap_data_0610.pkl'),
+                    'seq_lens': (84, 157, 32),
+                    # (text, audio, video)
+                    'feature_dims': (4096, 64, 64),
+                    'train_samples': 4290,
+                    'num_classes': 4,
+                    'language': 'en',
+                    'KeyEval': 'weight_F1'
+                }
+            },
+            'iemocap6':{
+                'unaligned': {
+                    'dataPath': os.path.join(root_dataset_dir, 'iemocap_data_0610.pkl'),
+                    'seq_lens': (84, 157, 32),
+                    # (text, audio, video)
+                    'feature_dims': (4096, 64, 64),
+                    'train_samples': 5531,
+                    'num_classes': 6,
+                    'language': 'en',
+                    'KeyEval': 'weight_F1'
+                }
+            },
 
         }
         return tmp
@@ -135,6 +158,46 @@ class ConfigClassification():
                     'gamma': 0,
                     # res
                     'H': 1.0
+                },
+                'iemocap4':{
+                    'task_specific_prompt': 'Please recognize the emotion of the above multimodal content from the target \
+                                                set <angry:0, happy:1, sad:2, neutral:3>. response: The emotion is',
+                    'max_new_tokens': 2,
+                    'pseudo_tokens': 4,
+                    'label_index_mapping': {'angry': 0, 'happy': 1, 'sad': 2, 'neutral': 3},
+                    'batch_size': 8,
+                    'learning_rate': 5e-5,
+                    'a_lstm_hidden_size': 64,
+                    'v_lstm_hidden_size': 32,
+                    'a_lstm_layers': 1,
+                    'v_lstm_layers': 1,
+                    'a_lstm_dropout': 0.0,
+                    'v_lstm_dropout': 0.0,
+                    'warm_up_epochs': 90,
+                    'gamma':1,
+                    'update_epochs': 1,
+                    'early_stop': 8,
+                    'H': 3.0
+                },
+                'iemocap6':{
+                    'task_specific_prompt': 'Please recognize the emotion of the above multimodal content from the target \
+                                                set <angry:0, happy:1, excited:2, sad:3, neutral:4, frustrated:5>. response: The emotion is',
+                    'max_new_tokens': 2,
+                    'pseudo_tokens': 4,
+                    'label_index_mapping': {'angry': 0, 'happy': 1, 'excited': 2, 'sad': 3, 'neutral': 4, 'frustrated': 5},
+                    'batch_size': 8,
+                    'learning_rate': 5e-5,
+                    'a_lstm_hidden_size': 64,
+                    'v_lstm_hidden_size': 32,
+                    'a_lstm_layers': 1,
+                    'v_lstm_layers': 1,
+                    'a_lstm_dropout': 0.0,
+                    'v_lstm_dropout': 0.0,
+                    'warm_up_epochs': 90,
+                    'gamma':1,
+                    'update_epochs': 1,
+                    'early_stop': 8,
+                    'H': 3.0
                 },
             },
         }
