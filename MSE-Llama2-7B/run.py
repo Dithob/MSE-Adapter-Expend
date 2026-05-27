@@ -187,34 +187,32 @@ def parse_args():
                         help='regression / classification')
     parser.add_argument('--modelName', type=str, default='cmcm',
                         help='support CMCM')
-    parser.add_argument('--datasetName', type=str, default='sims',
+    parser.add_argument('--datasetName', type=str, default='mosi',
                         help='support mosi/mosei/simsv2/iemocap/meld/cherma')
-    parser.add_argument('--root_dataset_dir', type=str, default='/home/young/DL/multimodal_dataset/',
+    parser.add_argument('--root_dataset_dir', type=str, default='/root/autodl-tmp/datasets/',
                         help='Location of the root directory where the dataset is stored')
-    parser.add_argument('--num_workers', type=int, default=0,
+    parser.add_argument('--num_workers', type=int, default=4,
                         help='num workers of loading data')
-    parser.add_argument('--model_save_dir', type=str, default='results/models',
+    parser.add_argument('--model_save_dir', type=str, default='/root/autodl-tmp/results/models',
                         help='path to save results.')
-    parser.add_argument('--res_save_dir', type=str, default='results/results',
+    parser.add_argument('--res_save_dir', type=str, default='/root/autodl-tmp/results/results',
                         help='path to save results.')
-    parser.add_argument('--pretrain_LM', type=str, default='/data/huggingface_model/Meta/Llama-2-7b-hf/',
+    parser.add_argument('--pretrain_LM', type=str, default='/root/autodl-tmp/models/Meta/Llama-2-7b-hf/',
                         help='path to load pretrain LLM.')
-    parser.add_argument('--gpu_ids', type=list, default=[2],
+    parser.add_argument('--gpu_ids', type=list, default=[],
                         help='indicates the gpus will be used. If none, the most-free gpu will be used!')   #使用GPU1
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_args()
     logger = set_log(args)
-    # for data_name in ['mosi', 'mosei', 'simsv2', 'iemocap', 'meld', 'cherma' ]:
-    # for data_name in ['simsv2','cherma']:
-    # for data_name in ['mosi']:
-    for data_name in ['simsv2', 'mosei',  'meld', 'cherma']:
+    # Run single dataset specified by args.datasetName
+    for data_name in [args.datasetName]:
         if data_name in ['mosi', 'mosei', 'sims', 'simsv2']:
             args.train_mode = 'regression'
         else:
             args.train_mode = 'classification'
 
         args.datasetName = data_name
-        args.seeds = [1111, 2222, 3333, 4444, 5555]
+        args.seeds = [1111]
         run_normal(args)

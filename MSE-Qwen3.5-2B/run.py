@@ -221,14 +221,13 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     logger = set_log(args)
-    # for data_name in [ 'simsv2', 'mosei', 'meld', 'cherma']:
-    for data_name in ['meld']:
+    # Run single dataset specified by args.datasetName
+    for data_name in [args.datasetName]:
         if data_name in ['mosi', 'mosei', 'sims', 'simsv2']:
             args.train_mode = 'regression'
         else:
             args.train_mode = 'classification'
 
         args.datasetName = data_name
-        # args.seeds = [1111, 2222, 3333, 4444, 5555]
         args.seeds = [1111]
         run_normal(args)
